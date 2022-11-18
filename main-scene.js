@@ -25,7 +25,6 @@ const {
 
 const Minimal_Webgl_Demo = defs.Minimal_Webgl_Demo;
 
-
 Object.assign(defs,
     {Axes_Viewer, Axes_Viewer_Test_Scene},
     {Inertia_Demo, Collision_Demo},
