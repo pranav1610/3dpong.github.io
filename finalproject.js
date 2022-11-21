@@ -204,6 +204,12 @@ export class FinalProject extends Scene {
         
     }
 
+    render_scene(context, program_state, shadow_pass, draw_light_source=false, draw_shadow=false) {
+        let light_position = this.light_position;
+        
+
+    }
+
     display(context, program_state) {
         // display():  Called once per frame of animation.
         // Setup -- This part sets up the scene's overall camera matrix, projection matrix, and lights:
@@ -268,7 +274,17 @@ export class FinalProject extends Scene {
         this.cube.draw(context, program_state, trans, this.cubemat)
         let trans1 = trans.times(Mat4.scale(0.1,0.1,1)).times(Mat4.rotation(Math.PI/2,0,1,0)).times(Mat4.scale(20,10,1)).times(Mat4.translation(-1,0,10))
         this.cube.draw(context, program_state, trans1, this.cubemat)
-        let trans2 = trans.times(Mat4.scale(0.1,0.1,1)).times(Mat4.rotation(Math.PI/2,0,1,0)).times(Mat4.scale(20,10,1)).times(Mat4.translation(-1,0,-10))
-        this.cube.draw(context, program_state, trans2, this.cubemat)
+        //let trans2 = trans.times(Mat4.scale(0.1,0.1,1)).times(Mat4.rotation(Math.PI/2,0,1,0)).times(Mat4.scale(20,10,1)).times(Mat4.translation(-1,0,-10))
+        //this.cube.draw(context, program_state, trans2, this.cubemat)
+        let trans2 = trans.times(Mat4.scale(0.1,0.1,1)).times(Mat4.rotation(Math.PI/2,0,1,0)).times(Mat4.scale(5,10,1)).times(Mat4.translation(-1,0,-10));
+        this.cube.draw(context, program_state, trans2, this.cubemat);
+        let trans3 = trans.times(Mat4.translation(0.15,0,0)).times(Mat4.scale(0.1,0.1,1)).times(Mat4.rotation(Math.PI/2,0,1,0)).times(Mat4.scale(5,10,1)).times(Mat4.translation(-5,0,-10));
+        this.cube.draw(context, program_state, trans3, this.cubemat);
+        let model_transform = Mat4.identity();
+        let trans4 =model_transform.times(Mat4.translation(-0.7,6,-7)).times(Mat4.scale(0.1,0.1,2)).times(Mat4.rotation(Math.PI/2,0,1,0)).times(Mat4.scale(1.7,15,8)).times(Mat4.translation(-1,0,-10));
+        this.cube.draw(context, program_state, trans4, this.cubemat);
+        let trans5 = model_transform.times(Mat4.translation(-0.7,-2,-7)).times(Mat4.scale(0.1,0.1,2)).times(Mat4.rotation(Math.PI/2,0,1,0)).times(Mat4.scale(1.7,15,8)).times(Mat4.translation(-1,0,-10));
+        this.cube.draw(context, program_state, trans5, this.cubemat);
+
     }
 }
