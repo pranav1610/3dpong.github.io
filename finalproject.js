@@ -22,7 +22,7 @@ export class Paddle{
         this.transform = Mat4.identity().times(Mat4.translation(this.pos[0], this.pos[1], this.pos[2]))
         this.transform2 = Mat4.identity().times(Mat4.translation(this.pos[0], this.pos[1]-.8, this.pos[2]))
 
-        this.shape = new defs.Subdivision_Sphere(3)
+        this.shape = new (defs.Rounded_Capped_Cylinder.prototype.make_flat_shaded_version())(30,20)
         this.shape2 = new defs.Cube()
         this.material = new Material(new defs.Phong_Shader(),
                                     {ambient: .4, diffusivity: .6, specularity: .3, color: hex_color(c)})  
@@ -33,7 +33,7 @@ export class Paddle{
     update(p){
         this.pos = vec3(lerp(this.pos[0], p[0], this.paddleResponsiveness), lerp(this.pos[1], p[1], this.paddleResponsiveness), this.constZ)
 
-        this.transform = Mat4.identity().times(Mat4.translation(this.pos[0], this.pos[1], this.pos[2])).times(Mat4.scale(.8,.8,.1)).times(Mat4.rotation(map(p[0], -5,5, 1,-1),0,0,1))
+        this.transform = Mat4.identity().times(Mat4.translation(this.pos[0], this.pos[1], this.pos[2])).times(Mat4.rotation(map(p[0], -5,5, 1,-1),0,0,1)).times(Mat4.scale(.8,.8,.1))
         this.transform2 = this.transform.times(Mat4.translation(0,-1,0)).times(Mat4.scale(.2,.8,.3))
     }
 
@@ -72,7 +72,7 @@ export class Ball{
         this.acc = this.acc.times(.1)
 
         this.transform = Mat4.identity().times(Mat4.translation(this.pos[0], this.pos[1], this.pos[2])).times(Mat4.scale(this.r,this.r,this.r))
-        
+        this.dt = dt;
         //drag
         //this.vel = this.vel.times(0.99)
     }
@@ -139,8 +139,6 @@ export class Table{
 
 export class Net{
     constructor(){
-        this.pos = vec3(0,0,0)
-
         this.transform = Mat4.identity().times(Mat4.translation(0,.35,0)).times(Mat4.scale(5,0.7,.05))
 
         this.shape = new defs.Cube()
@@ -255,7 +253,6 @@ export class FinalProject extends Scene {
         
         this.table.show(context, program_state)
 
-        this.net.show(context, program_state)
         this.cube.draw(context, program_state, Mat4.identity()
         .times(Mat4.scale(.1,.55,.1))
         .times(Mat4.translation(-5*10,1,0))
@@ -288,6 +285,8 @@ export class FinalProject extends Scene {
         let trans5 = model_transform.times(Mat4.translation(-0.7,-2,-7)).times(Mat4.scale(0.1,0.1,2)).times(Mat4.rotation(Math.PI/2,0,1,0)).times(Mat4.scale(1.7,15,8)).times(Mat4.translation(-1,0,-10));
         this.cube.draw(context, program_state, trans5, this.cubemat);
 
+
+        this.net.show(context, program_state)
     }
 }
 
@@ -331,17 +330,20 @@ class Net_Shader extends Shader {
                 float refx = position_OCS.x + 1.0;
                 float refy = position_OCS.y + 1.0;
 
-                float densityX = 28.0;
-                float densityY = 5.2;
-                if((mod(refx, 1.0 / densityX) < 0.5 / densityX) && (mod(refx, 1.0 / densityX) > 0.2 / densityX) || mod(refy, 1.0 / densityY) < 0.5 / densityY && (mod(refy, 1.0 / densityY) > 0.1 / densityY) ){
-                    factor = 1.0;
+                float densityX = 35.0;
+                float densityY = 5.6;
+                if(position_OCS.y >.9|| position_OCS.y < -.24 || (mod(refx, 1.0 / densityX) < 0.5 / densityX) && (mod(refx, 1.0 / densityX) > 0.2 / densityX) || mod(refy, 1.0 / densityY) < 0.5 / densityY && (mod(refy, 1.0 / densityY) > 0.1 / densityY) ){
+                    factor = .9;
+                    if(position_OCS.y > .9 || position_OCS.y < -.3){
+                        factor = 1.0;
+                    }
                 }
-                vec3 col = vec3(0.3,0.3,0.3);
-                if(position_OCS.y < .9){
-                    col = vec3(.85,.85,.85);
+                vec3 col = vec3(0.8,0.8,0.8);
+                if(position_OCS.y < .9 ){
+                    col = vec3(.0,.0,.0);
                 }
-                vec4 mixed_color =  vec4(col, factor);
-                gl_FragColor = mixed_color;
+                //vec4 mixed_color =  vec4(col, factor);
+                gl_FragColor = vec4(col, factor);
             } `;
     }
 
