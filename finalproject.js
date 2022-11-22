@@ -144,8 +144,7 @@ export class Net{
         this.transform = Mat4.identity().times(Mat4.translation(0,.35,0)).times(Mat4.scale(5,0.7,.05))
 
         this.shape = new defs.Cube()
-        this.material = new Material(new defs.Phong_Shader(),
-                                    {ambient: .4, diffusivity: .6, color: hex_color("bbccdd")})        
+        this.material = new Material(new Net_Shader());
     }
 
     // Displays the table
@@ -204,17 +203,11 @@ export class FinalProject extends Scene {
         
     }
 
-    render_scene(context, program_state, shadow_pass, draw_light_source=false, draw_shadow=false) {
-        let light_position = this.light_position;
-        
-
-    }
-
     display(context, program_state) {
         // display():  Called once per frame of animation.
         // Setup -- This part sets up the scene's overall camera matrix, projection matrix, and lights:
         if (!context.scratchpad.controls) {
-            //this.children.push(context.scratchpad.controls = new defs.Movement_Controls());
+            this.children.push(context.scratchpad.controls = new defs.Movement_Controls());
             // Define the global camera and projection matrices, which are stored in program_state.
             program_state.set_camera(this.initial_camera_location);
         }
@@ -263,7 +256,16 @@ export class FinalProject extends Scene {
         this.table.show(context, program_state)
 
         this.net.show(context, program_state)
+        this.cube.draw(context, program_state, Mat4.identity()
+        .times(Mat4.scale(.1,.55,.1))
+        .times(Mat4.translation(-5*10,1,0))
+        , this.cubemat.override({color:color(.12,.12,.12,1)}))
 
+        this.cube.draw(context, program_state, Mat4.identity()
+        .times(Mat4.scale(.1,.55,.1))
+        .times(Mat4.translation(5*10,1,0))
+        , this.cubemat.override({color:color(.12,.12,.12,1)}))
+        
         let trans = Mat4.identity()
         
         this.cube.draw(context, program_state, trans.times(Mat4.translation(0,-.89,0))
@@ -287,4 +289,72 @@ export class FinalProject extends Scene {
         this.cube.draw(context, program_state, trans5, this.cubemat);
 
     }
+}
+
+
+class Net_Shader extends Shader {
+    constructor() {
+        super();
+    }
+
+    shared_glsl_code() {
+        // ********* SHARED CODE, INCLUDED IN BOTH SHADERS *********
+        return ` 
+        precision mediump float;
+        
+        varying vec4 position_OCS; // <---
+        `;
+    }
+
+    vertex_glsl_code() {
+        // ********* VERTEX SHADER *********
+        return this.shared_glsl_code() + `
+            attribute vec3 position, normal;       
+            
+            uniform mat4 model_transform;
+            uniform mat4 projection_camera_model_transform;
+    
+            void main(){                                                                   
+                // The vertex's final resting place (in NDCS):
+                gl_Position = projection_camera_model_transform * vec4( position, 1.0 ); 
+                position_OCS = vec4( position, 1.0 ); // <---
+            } `;
+    }
+
+    fragment_glsl_code() {
+        // ********* FRAGMENT SHADER *********
+        return this.shared_glsl_code() + `
+            uniform vec4 shape_color; 
+        
+            void main(){           
+                float factor = 0.0;
+                float refx = position_OCS.x + 1.0;
+                float refy = position_OCS.y + 1.0;
+
+                float densityX = 28.0;
+                float densityY = 5.2;
+                if((mod(refx, 1.0 / densityX) < 0.5 / densityX) && (mod(refx, 1.0 / densityX) > 0.2 / densityX) || mod(refy, 1.0 / densityY) < 0.5 / densityY && (mod(refy, 1.0 / densityY) > 0.1 / densityY) ){
+                    factor = 1.0;
+                }
+                vec3 col = vec3(0.3,0.3,0.3);
+                if(position_OCS.y < .9){
+                    col = vec3(.85,.85,.85);
+                }
+                vec4 mixed_color =  vec4(col, factor);
+                gl_FragColor = mixed_color;
+            } `;
+    }
+
+    update_GPU(context, gpu_addresses, graphics_state, model_transform, material) {
+        // update_GPU():  Defining how to synchronize our JavaScript's variables to the GPU's:
+        const [P, C, M] = [graphics_state.projection_transform, graphics_state.camera_inverse, model_transform],
+            PCM = P.times(C).times(M);
+        context.uniformMatrix4fv(gpu_addresses.model_transform, false, Matrix.flatten_2D_to_1D(model_transform.transposed()));
+        context.uniformMatrix4fv(gpu_addresses.projection_camera_model_transform, false,
+            Matrix.flatten_2D_to_1D(PCM.transposed()));
+
+        // Set uniform parameters
+        context.uniform4fv(gpu_addresses.shape_color, color(.85,.85,.85,1));
+    }
+
 }
