@@ -13,6 +13,16 @@ function lerp(a, b, t) {
     return (1 - Math.sqrt(t)) * a + Math.sqrt(t) * b;
 }
 
+function randrange(min, max) { // min and max included 
+    return (Math.random() * (max - min + 1) + min)
+}
+
+function mag(v){
+    return Math.sqrt(v[0] * v[0] + v[1] * v[1])
+}
+
+const gravity = 22
+
 export class Paddle{
     constructor(z, c){
         this.constZ = z;
@@ -47,7 +57,7 @@ export class Paddle{
 export class Ball{
     constructor(){
         this.pos = vec3(0,3,-7)
-        this.vel = vec3(1,0,7)
+        this.vel = vec3(1,0,13)
         this.acc = vec3(0,0,0)
 
         this.r = .125
@@ -56,7 +66,7 @@ export class Ball{
 
         this.shape = new defs.Subdivision_Sphere(3)
         this.material = new Material(new defs.Phong_Shader(),
-                                    {ambient: .4, diffusivity: .6, color: hex_color("#f5a42a")})       
+                                    {ambient: .4, diffusivity: .6, color: hex_color("#eeffff")})       
                                     
         this.hit = []
     }
@@ -73,12 +83,32 @@ export class Ball{
 
         this.transform = Mat4.identity().times(Mat4.translation(this.pos[0], this.pos[1], this.pos[2])).times(Mat4.scale(this.r,this.r,this.r))
         this.dt = dt;
-        //drag
-        //this.vel = this.vel.times(0.99)
     }
 
     dist(x1,y1, x2,y2){
         return Math.sqrt((x2-x1) * (x2-x1) + (y2-y1) * (y2-y1))
+    }
+
+    calcVel(maxHeight, targetPos, x0){
+        let m = maxHeight
+        let h = this.pos[1]
+
+        let d = this.dist(this.pos[0], this.pos[2], targetPos[0], targetPos[1])
+        
+        let k = (1/gravity) - 1/(2*gravity)
+        let vy0 = Math.sqrt((m-h)/k)
+
+        let td = (-vy0 - Math.sqrt((vy0*vy0) - 4 * (-gravity/2) * h)) / (-gravity)
+        //if (td < .0005 || td > -.0005) td = .0005
+        let vx0 = (d) / td
+
+        let theta = Math.atan(vy0/vx0)
+        let temp = targetPos.minus(vec(this.pos[0], this.pos[2])).normalized()
+        temp = temp.times(Math.cos(theta))
+        let dir = vec3(temp[0], Math.sin(theta), temp[1]).normalized()
+
+        console.log(m-h)
+        return dir.times(Math.sqrt(vx0*vx0 + vy0*vy0))
     }
 
     checkCollison(paddle){
@@ -93,14 +123,23 @@ export class Ball{
         let player = paddle.constZ > 0
 
         if (player) {
-            playerCollide = (this.pos[2] >= 7.8 && this.pos[2] <= 8.0) && this.dist(x,y,x_,y_) <= 1
+            // player paddle's collision check
+            playerCollide = (this.pos[2] >= 7.8) && this.dist(x,y,x_,y_) <= 1
         }else {
-            playerCollide = (this.pos[2] <= -7.9 && this.pos[2] >= -8.3) && this.dist(x,y,x_,y_) <= 1
+            // ai paddle's collision check
+            playerCollide = (this.pos[2] <= -7.9) && this.dist(x,y,x_,y_) <= 1
         }
 
         if (playerCollide){
             this.pos = vec3(this.pos[0], this.pos[1], (player) ? 7.9 : -7.9)
-            this.vel = vec3(player ? 6*(Math.random()-.5) : -this.vel[0], this.vel[1], player ? -15:-1 * this.vel[2])
+
+            if(player){
+                this.pos = vec3(this.pos[0], this.pos[1], this.pos[2]-.125)
+                this.vel = this.calcVel(this.pos[1] + .3, vec(r,-2.5), 8)
+            }else{
+                this.pos = vec3(this.pos[0], this.pos[1], this.pos[2]+.125)
+                this.vel = this.calcVel(this.pos[1] + .3, vec(r,2.5), -8)
+            }
 
             console.log("hit")
         }
@@ -110,7 +149,7 @@ export class Ball{
 
         if(this.pos[1] - .25 <= 0 && cubeConstraint){
             this.pos = vec3(this.pos[0], .1 + .25, this.pos[2])
-            this.vel = vec3(this.vel[0], -this.vel[1], this.vel[2])
+            this.vel = vec3(this.vel[0], -.96*this.vel[1], this.vel[2])
         }
     }
 
@@ -160,11 +199,12 @@ export class FinalProject extends Scene {
         this.net = new Net();
 
         this.player = new Paddle(8,"#ff2233");
+        this.targetPoint = vec3(0,2,0);
 
         this.ai = new Paddle(-8,"#1122ee");
 
         this.mousePos = vec3(0,0,0)
-        this.initial_camera_location = Mat4.look_at(vec3(0, 4.5, 15), vec3(0, 0, 0), vec3(0, 1, 0));
+        this.initial_camera_location = Mat4.look_at(vec3(0, 4.5, 15), vec3(0, .5, 0), vec3(0, 1, 0));
 
         this.cube = new defs.Cube()
 
@@ -184,7 +224,7 @@ export class FinalProject extends Scene {
         //world y -> 1 to 3
 
         let x = map(mousePos[0], 0, 1080, -5, 5)
-        let y = map(mousePos[1], 0, 600, 3, 1)
+        let y = map(mousePos[1], 0, 600, 5, .5)
 
         return vec(x,y)
     }
@@ -199,6 +239,10 @@ export class FinalProject extends Scene {
         let t = (z_ - p[2]) / p[2]
         return vec3( p[0] + v[0]*t , p[1] + v[1]*t , p[2] + v[2] * t )
         
+    }
+
+    clamp(p){
+        return vec3(Math.min(Math.max(p[0], -7), 7), Math.min(Math.max(p[1], 1), 5), p[2])
     }
 
     display(context, program_state) {
@@ -230,19 +274,19 @@ export class FinalProject extends Scene {
             this.mousePos = this.getMousePos(context.canvas, e);
         });
 
-        let targetPoint = vec3(0,2,0)
-
+        
+        this.targetPoint = vec3(0,2,0)
         if(this.ball.pos[2] < -6){
-            targetPoint = this.rayPlaneIntersection(this.ball.pos, this.ball.vel, -8)
+            this.targetPoint = this.rayPlaneIntersection(this.ball.pos, this.ball.vel, -8)
         }
 
         this.player.update(this.mouseToWorldPos(this.mousePos))
         this.player.show(context, program_state)
 
-        this.ai.update(targetPoint)
+        this.ai.update(this.clamp(this.targetPoint))
         this.ai.show(context, program_state)
 
-        const gravity = 22
+        
         
         this.ball.applyForce(vec3(0,-gravity,0))
         this.ball.applyForce(/*Apply any vector as a force*/vec3(0,0,0))
