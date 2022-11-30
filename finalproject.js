@@ -24,9 +24,9 @@ function mag(v){
 const gravity = 22
 
 export class Paddle{
-    constructor(z, c){
+    constructor(z, c, paddleResponsiveness){
         this.constZ = z;
-        this.paddleResponsiveness = 0.1
+        this.paddleResponsiveness = paddleResponsiveness
 
         this.pos = vec3(0,2,this.constZ)
         this.transform = Mat4.identity().times(Mat4.translation(this.pos[0], this.pos[1], this.pos[2]))
@@ -198,10 +198,10 @@ export class FinalProject extends Scene {
         this.table = new Table();
         this.net = new Net();
 
-        this.player = new Paddle(8,"#ff2233");
+        this.player = new Paddle(8,"#ff2233", 0.1);
         this.targetPoint = vec3(0,2,0);
 
-        this.ai = new Paddle(-8,"#1122ee");
+        this.ai = new Paddle(-8,"#1122ee", 0.001);
 
         this.mousePos = vec3(0,0,0)
         this.initial_camera_location = Mat4.look_at(vec3(0, 4.5, 15), vec3(0, .5, 0), vec3(0, 1, 0));
