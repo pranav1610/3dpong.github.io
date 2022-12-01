@@ -1,6 +1,6 @@
 import {defs, tiny} from './examples/common.js';
 import { Many_Lights_Demo } from './examples/many-lights-demo.js';
-
+import { Text_Line } from './examples/text-demo.js';
 
 const {
     Vector, Vector3, vec, vec3, vec4, color, hex_color, Shader, Matrix, Mat4, Light, Shape, Texture, Material, Scene,
@@ -29,6 +29,11 @@ function mag(v){
 }
 
 const gravity = 22
+var score = 0
+var out = false
+var win = false
+var light_color = color(1,1,1,1)
+var start = false
 
 export class Paddle{
     constructor(z, c, paddleResponsiveness){
@@ -92,6 +97,9 @@ export class Ball{
 
         this.transform = Mat4.identity().times(Mat4.translation(this.pos[0], this.pos[1], this.pos[2])).times(Mat4.scale(this.r,this.r,this.r))
         this.dt = dt;
+
+        if (this.pos[2] > 20) out = true
+        if (this.pos[2] < -20) win = true
     }
 
     dist(x1,y1, x2,y2){
@@ -144,10 +152,19 @@ export class Ball{
 
             if(player){
                 this.pos = vec3(this.pos[0], this.pos[1], this.pos[2]-.125)
-                this.vel = this.calcVel(this.pos[1] + .3, vec(randrange(-0.5,0.5),-2.5), 8)
+                this.vel = this.calcVel(Math.max(3,this.pos[1] + .3), vec(randrange(-1.5,1.5),-2.5), 8)
             }else{
                 this.pos = vec3(this.pos[0], this.pos[1], this.pos[2]+.125)
-                this.vel = this.calcVel(this.pos[1] + .3, vec(randrange(-0.5,0.5),2.5), -8)
+                this.vel = this.calcVel(Math.max(3,this.pos[1] + .3), vec(randrange(-0.5,0.5),2.5), -8)
+            }
+            
+            if(player) score += 1
+
+            if(!player){
+                let r = Math.random()
+                console.log(r, paddle.paddleResponsiveness)
+                if (r < .1) paddle.paddleResponsiveness = 0.001
+                else paddle.paddleResponsiveness = 0.1
             }
 
             console.log("hit")
@@ -175,7 +192,7 @@ export class Table{
         this.transform = Mat4.identity().times(Mat4.translation(0,-0.1,0)).times(Mat4.scale(5,0.2,9))
 
         this.shape = new defs.Cube()
-        this.material = new Material(new defs.Phong_Shader(),
+        this.material = new Material(new defs.Textured_Phong(),
                                     {ambient: .4, diffusivity: .8, specularity: .3, color: hex_color("#0b518a")})        
     }
 
@@ -211,20 +228,44 @@ export class FinalProject extends Scene {
         this.table = new Table();
         this.net = new Net();
 
+        this.collide_number1 = 0;
+        this.collide_number2=0;
+
         this.showBall = false;
 
         this.player = new Paddle(8,"#ff2233", 0.1);
         this.targetPoint = vec3(0,2,0);
 
-        this.ai = new Paddle(-8,"#1122ee", 0.001);
+        this.ai = new Paddle(-8,"#1122ee", 0.1);
 
         this.mousePos = vec3(0,0,0)
-        this.initial_camera_location = Mat4.look_at(vec3(0, 4.5, 15), vec3(0, .5, 0), vec3(0, 1, 0));
+        // vec3(0, 4.5, 15), vec3(0, .5, 0), vec3(0, 1, 0)
+        //vec3(-4, 2, -3), vec3(-2, 1.5, -7), vec3(0, 1, 0)
+        this.initial_camera_location = Mat4.look_at(vec3(-4, 2, 5), vec3(-3, .5, -7), vec3(0, 1, 0));
 
         this.cube = new defs.Cube()
 
+        this.shape={text:new Text_Line(20)};
+
         this.cubemat = new Material(new defs.Phong_Shader(),
             {ambient: .4, diffusivity: .6, specularity: .1,color: hex_color("#ffefcb")}) 
+        
+        this.ashish = new Material(new Textured_Phong(), {
+                color: hex_color("#888888"),
+                ambient: .4, diffusivity: .6, specularity: .8,
+                texture: new Texture("assets/ashish.jpg", "NEAREST")
+        });
+
+        this.ashish2 = new Material(new Textured_Phong(), {
+            color: hex_color("#666666"),
+            ambient: .4, diffusivity: .6, specularity: .8,
+            texture: new Texture("assets/ashish2.jpg", "NEAREST")
+        });
+
+
+        const textured = new defs.Textured_Phong(1);
+        this.text_image = new Material(textured,
+            {ambient: 1, diffusivity: 0, specularity: 0, texture: new Texture("assets/text.png")});
         
                 // SHADOW CODE BELOW
                 this.shapes = {
@@ -418,6 +459,13 @@ export class FinalProject extends Scene {
     clamp(p){
         return vec3(Math.min(Math.max(p[0], -7), 7), Math.min(Math.max(p[1], 1), 5), p[2])
     }
+    
+    make_control_panel() {
+        // TODO:  Implement requirement #5 using a key_triggered_button that responds to the 'c' key.
+        this.key_triggered_button("Rotate", [" "], () => {
+            start = true
+        });
+    }
 
     display(context, program_state) {
 
@@ -436,16 +484,6 @@ export class FinalProject extends Scene {
 
             this.init_ok = true;
         }
-
-        // if (!context.scratchpad.controls) {
-        //     this.children.push(context.scratchpad.controls = new defs.Movement_Controls());
-        //     // Define the global camera and projection matrices, which are stored in program_state.
-        //     program_state.set_camera(Mat4.look_at(
-        //         vec3(0, 12, 12),
-        //         vec3(0, 2, 0),
-        //         vec3(0, 1, 0)
-        //     )); // Locate the camera here
-        // }
 
         // The position of the light
         this.light_position = Mat4.rotation(t / 1500, 0, 1, 0).times(vec4(3, 6, 0, 1));
@@ -471,7 +509,7 @@ export class FinalProject extends Scene {
         // display():  Called once per frame of animation.
         // Setup -- This part sets up the scene's overall camera matrix, projection matrix, and lights:
         if (!context.scratchpad.controls) {
-            this.children.push(context.scratchpad.controls = new defs.Movement_Controls());
+            //this.children.push(context.scratchpad.controls = new defs.Movement_Controls());
             // Define the global camera and projection matrices, which are stored in program_state.
             program_state.set_camera(this.initial_camera_location);
         }
@@ -480,9 +518,9 @@ export class FinalProject extends Scene {
             Math.PI / 4, context.width / context.height, .1, 1000);
 
         // TODO: Lighting (Requirement 2)
-        const light_position = vec4(0, 5, 5, 1);
+        const light_position = vec4(0, 10, 0, 1);
         // The parameters of the Light are: position, color, size
-        program_state.lights = [new Light(light_position, color(1, 1, 1, 1), 1000)];
+        program_state.lights = [new Light(light_position, light_color, 1000)];
 
         // TODO:  Fill in matrix operations and drawing code to draw the solar system scene (Requirements 3 and 4)
         //const t = program_state.animation_time / 1000, dt = program_state.animation_delta_time / 1000;
@@ -542,29 +580,43 @@ export class FinalProject extends Scene {
         // HERE ABOVE MADE CHANGE
 
         this.targetPoint = vec3(0,2,0)
-        if(this.ball.pos[2] < -6){
+        if(this.ball.pos[2] < -6 && this.ball.pos[2] > -11){
             this.targetPoint = this.rayPlaneIntersection(this.ball.pos, this.ball.vel, -8)
         }
+        // let x = this.ball.pos[0]
+        // let y = this.ball.pos[1]
 
-        this.player.update(this.mouseToWorldPos(this.mousePos))
+        // let x_ = this.player.pos[0]
+        // let y_ = this.player.pos[1]
+        // let dist = Math.sqrt((x_-x)*(x_-x)+(y_-y)*(y_-y));
+        // if((this.ball.pos[2] >= 7.8 && this.ball.pos[2] <= 8.0)&&dist <= 1)
+        // {
+        //     this.collide_number1+=1;
+        // }
+
+
+        if(!out)this.player.update(this.mouseToWorldPos(this.mousePos))
         this.player.show(context, program_state)
+
 
         this.ai.update(this.clamp(this.targetPoint))
         this.ai.show(context, program_state)
 
         
+        if(start){
+            this.initial_camera_location = Mat4.look_at(vec3(0, 4.5, 15), vec3(0, .5, 0), vec3(0, 1, 0))
+            this.ball.applyForce(vec3(0,-gravity,0))
+            this.ball.applyForce(/*Apply any vector as a force*/vec3(0,0,0))
+            this.ball.update(dt)
+            this.ball.checkCollison(this.player)
+            this.ball.checkCollison(this.ai)
         
-        this.ball.applyForce(vec3(0,-gravity,0))
-        this.ball.applyForce(/*Apply any vector as a force*/vec3(0,0,0))
-        this.ball.update(dt)
-        this.ball.checkCollison(this.player)
-        this.ball.checkCollison(this.ai)
         
-        // HERE MADE CHANGE BELOW
-       // this.ball.show(context, program_state)
-        this.showBall = true
-        // MERE MADE CHANGE ABOVE
-
+            // HERE MADE CHANGE BELOW
+            // this.ball.show(context, program_state)
+            this.showBall = true
+            // MERE MADE CHANGE ABOVE
+        }
         this.cube.draw(context, program_state, Mat4.identity()
         .times(Mat4.scale(.1,.55,.1))
         .times(Mat4.translation(-5*10,1,0))
@@ -582,29 +634,49 @@ export class FinalProject extends Scene {
         , this.cubemat.override({color:color(1,1,1,1)}))
 
         trans = trans.times(Mat4.translation(0,0,-20)).times(Mat4.scale(10,10,1))
-        this.cube.draw(context, program_state, trans, this.cubemat)
+        this.cube.draw(context, program_state, trans, this.ashish2)
         let trans1 = trans.times(Mat4.scale(0.1,0.1,1)).times(Mat4.rotation(Math.PI/2,0,1,0)).times(Mat4.scale(20,10,1)).times(Mat4.translation(-1,0,10))
-        this.cube.draw(context, program_state, trans1, this.cubemat)
-        //let trans2 = trans.times(Mat4.scale(0.1,0.1,1)).times(Mat4.rotation(Math.PI/2,0,1,0)).times(Mat4.scale(20,10,1)).times(Mat4.translation(-1,0,-10))
-        //this.cube.draw(context, program_state, trans2, this.cubemat)
-        let trans2 = trans.times(Mat4.scale(0.1,0.1,1)).times(Mat4.rotation(Math.PI/2,0,1,0)).times(Mat4.scale(5,10,1)).times(Mat4.translation(-1,0,-10));
-        this.cube.draw(context, program_state, trans2, this.cubemat);
-        let trans3 = trans.times(Mat4.translation(0.15,0,0)).times(Mat4.scale(0.1,0.1,1)).times(Mat4.rotation(Math.PI/2,0,1,0)).times(Mat4.scale(5,10,1)).times(Mat4.translation(-5,0,-10));
-        this.cube.draw(context, program_state, trans3, this.cubemat);
-        let model_transform = Mat4.identity();
-        let trans4 =model_transform.times(Mat4.translation(-0.7,6,-7)).times(Mat4.scale(0.1,0.1,2)).times(Mat4.rotation(Math.PI/2,0,1,0)).times(Mat4.scale(1.7,15,8)).times(Mat4.translation(-1,0,-10));
-        this.cube.draw(context, program_state, trans4, this.cubemat);
-        let trans5 = model_transform.times(Mat4.translation(-0.7,-2,-7)).times(Mat4.scale(0.1,0.1,2)).times(Mat4.rotation(Math.PI/2,0,1,0)).times(Mat4.scale(1.7,15,8)).times(Mat4.translation(-1,0,-10));
-        this.cube.draw(context, program_state, trans5, this.cubemat);
+        this.cube.draw(context, program_state, trans1, this.ashish)
+        let trans2 = trans.times(Mat4.scale(0.1,0.1,1)).times(Mat4.rotation(Math.PI/2,0,1,0)).times(Mat4.scale(20,10,1)).times(Mat4.translation(-1,0,-10))
+        this.cube.draw(context, program_state, trans2, this.ashish)
+
 
 
         this.net.show(context, program_state)
 
-
+        let text_trans = Mat4.translation(-5, 5, 7).times(Mat4.scale(0.2, 0.2, 0.1));
+        this.shape.text.set_string(((out ? "Final " : "") + "Score:")+score.toString(), context.context);
+        this.shape.text.draw(context, program_state, text_trans, this.text_image);
         
+        let out_text_trans = Mat4.translation(-.6,4.5,7).times(Mat4.scale(0.4, 0.4, 0.1));
+        this.shape.text.set_string("OUT", context.context);
+        if (out) {
+            this.shape.text.draw(context, program_state, out_text_trans, this.text_image);
+            light_color = color(.1,.1,.1,1)
+        }
+        else{
+            light_color = color(1,1,1,1)
+        }
 
+        this.shape.text.set_string("You Won!", context.context);
+        let win_text_trans = Mat4.translation(-2,4.5,7).times(Mat4.scale(0.4, 0.4, 0.1));
+        if (win){
+            this.shape.text.draw(context, program_state, win_text_trans, this.text_image);
+        }
+
+        if(!start){
+            light_color = color(1,1,1,1)
+            this.shape.text.set_string("Press SPACE to START", context.context);
+            let start_text_trans = Mat4.translation(-5,1.5,0).times(Mat4.scale(0.1, 0.1, 0.1));
+            let title_text_trans = Mat4.translation(-5,2,0).times(Mat4.scale(0.2, 0.2, 0.1));
+            this.shape.text.draw(context, program_state, start_text_trans, this.text_image);
+            this.shape.text.set_string("SIGMA PONG", context.context);
+            this.shape.text.draw(context, program_state, title_text_trans, this.text_image);
+        }
+        
     }
 }
+
 
 
 class Net_Shader extends Shader {
